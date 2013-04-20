@@ -93,7 +93,7 @@ sub git_commit {
 
     my $pushd = File::pushd::pushd($self->destination);
     system 'git', 'add', '.';
-    system 'git', 'commit', '-m', $archive->distvname,
+    system 'git', 'commit', '-q', '-m', $archive->distvname,
       '--author', $archive->git_author,
       '--date', $archive->epoch . " +0000";
 }
