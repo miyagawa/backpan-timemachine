@@ -161,9 +161,15 @@ use Moo;
 use MooX::late;
 
 has package => (is => 'rw', isa => 'Str');
+has package_lc => (is => 'lazy');
 has version => (is => 'rw');
 has archive => (is => 'rw', handles => [qw( cpanid distfile  )]);
 has status  => (is => 'rw', isa => 'Str');
+
+sub _build_package_lc {
+    my $self = shift;
+    lc $self->package;
+}
 
 sub pass {
     my $self = shift;
@@ -218,7 +224,7 @@ sub sorted_effective_packages {
     my $self = shift;
 
     my $pkgs = $self->effective_packages;
-    map $pkgs->{$_}, sort { $pkgs->{$a}->package cmp $pkgs->{$b}->package } keys %$pkgs;
+    map $pkgs->{$_}, sort { $pkgs->{$a}->package_lc cmp $pkgs->{$b}->package_lc } keys %$pkgs;
 }
 
 sub dump_files {
@@ -247,7 +253,7 @@ sub packages_txt {
     my $text = <<EOF;
 File:         02packages.details.txt
 URL:          http://www.perl.com/CPAN/modules/02packages.details.txt
-Description:  Package names found in directory \$CPAN/authors/id
+Description:  Package names found in directory \$CPAN/authors/id/
 Columns:      package name, version, path
 Intended-For: Automated fetch routines, namespace documentation.
 Written-By:   backpan-timemachine
@@ -255,7 +261,7 @@ Line-Count:   @{[ $#packages + 1 ]}
 Last-Updated: @{[ scalar localtime $self->last_updated ]}
 
 EOF
-    for my $p (sort { $a->package cmp $b->package } @packages) {
+    for my $p (@packages) {
         $text .= sprintf "%-30s %8s  %s\n", $p->package, $p->version, $p->distfile;
     }
 
