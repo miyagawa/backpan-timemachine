@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 use strict;
+use 5.012;
 use Dist::Metadata;
 use App::Cache;
 
@@ -74,7 +75,7 @@ sub examine_file {
     my $versions = $archive->package_versions;
 
     while (my($pkg, $ver) = each %$versions) {
-        my $package = BPTM::Package->new(package => $pkg, version => $ver || 'undef', archive => $archive);
+        my $package = BPTM::Package->new(package => $pkg, version => $ver // 'undef', archive => $archive);
         if ($self->perms->has_permission($package)) {
             $package->pass;
             $self->state->add($package);
