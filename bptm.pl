@@ -75,7 +75,12 @@ sub examine_file {
     my $versions = $archive->package_versions;
 
     while (my($pkg, $ver) = each %$versions) {
-        my $package = BPTM::Package->new(package => $pkg, version => $ver // 'undef', archive => $archive);
+        my $package = BPTM::Package->new(
+            package => $pkg,
+            version => $ver // 'undef',
+            distinfo => $archive->distinfo,
+            mtime   => $archive->mtime,
+        );
         if ($self->perms->has_permission($package)) {
             $package->pass;
             $self->state->add($package);
@@ -163,7 +168,8 @@ use MooX::late;
 has package => (is => 'rw', isa => 'Str');
 has package_lc => (is => 'lazy');
 has version => (is => 'rw');
-has archive => (is => 'rw', handles => [qw( cpanid distfile  )]);
+has distinfo => (is => 'ro', handles => [qw( cpanid )]);
+has mtime   => (is => 'ro', handles => [qw( epoch )]);
 has status  => (is => 'rw', isa => 'Str');
 
 sub _build_package_lc {
@@ -181,6 +187,12 @@ sub fail {
     $self->status('fail');
 }
 
+sub distfile {
+    my $self = shift;
+    $self->distinfo->pathname =~ m{^authors/id/(.*)$}
+      and return $1;
+}
+
 package BPTM::State;
 use Moo;
 use MooX::late;
@@ -194,7 +206,7 @@ sub add {
     my($self, $package) = @_;
     push @{$self->packages}, $package;
     $self->update_effective($package);
-    $self->last_updated( $package->archive->epoch );
+    $self->last_updated( $package->epoch );
 }
 
 sub update_effective {
@@ -239,7 +251,7 @@ sub dump {
     my $self = shift;
     my $text;
     for my $pkg (@{$self->packages}) {
-        $text .= join "\t", $pkg->status, $pkg->package, $pkg->version, $pkg->distfile, $pkg->archive->epoch;
+        $text .= join "\t", $pkg->status, $pkg->package, $pkg->version, $pkg->distfile, $pkg->epoch;
         $text .= "\n";
     }
     $text;
@@ -289,12 +301,6 @@ sub _build_distinfo {
     my $self = shift;
     $self->path =~ m!(authors/id/.*)$!
       and CPAN::DistnameInfo->new($1);
-}
-
-sub distfile {
-    my $self = shift;
-    $self->distinfo->pathname =~ m{^authors/id/(.*)$}
-      and return $1;
 }
 
 sub package_versions {
