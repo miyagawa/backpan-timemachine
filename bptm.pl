@@ -34,6 +34,7 @@ sub _build_state { BPTM::State->new }
 sub run {
     my $self = shift;
     $self->git_init($self->destination);
+    # TODO load from state, only newer files
     $self->find_iter(sub { $self->examine_file(@_) });
 }
 
@@ -222,6 +223,7 @@ sub sorted_effective_packages {
 sub dump_files {
     my($self, $dir) = @_;
 
+    # TODO only update new files to .state
     $dir->child('backpan-timemachine.state')->spew($self->dump);
     $dir->child('02packages.details.txt')->spew($self->packages_txt);
 }
@@ -303,12 +305,16 @@ sub package_versions {
 
     # 05:38 alh: YOu might want to put a alarm(5) around the ->package_versions
     # 05:39 alh: Otherwise it may run forever when it hits Acme-BadExample-1.01/lib/Acme/BadExample.pm
-    my $provides = try {
+    my $provides;
+    try {
         local $SIG{__WARN__} = sub {};
-        local $SIG{__DIE__} = sub { die "ALARM\n" };
-        alarm(10);
-        $self->metadata->provides;
-    } || $self->provides_ignoring_dist_version;
+        local $SIG{ALRM} = sub { die "ALARM\n" };
+        alarm 30;
+        $provides = $self->metadata->provides;
+        alarm 0;
+    } catch {
+        $self->provides_ignoring_dist_version;
+    };
 
     $self->metadata->package_versions($provides);
 }
