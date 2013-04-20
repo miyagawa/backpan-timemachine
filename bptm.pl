@@ -238,16 +238,6 @@ sub dump {
     $text;
 }
 
-sub pad {
-    my($str, $len, $left) = @_;
-
-    my $howmany = $len - length($str);
-    return $str if $howmany <= 0;
-
-    my $pad = " " x $howmany;
-    return $left ? "$pad$str" : "$str$pad";
-}
-
 sub packages_txt {
     my $self = shift;
 
@@ -265,7 +255,7 @@ Last-Updated: @{[ scalar localtime $self->last_updated ]}
 
 EOF
     for my $p (sort { $a->package cmp $b->package } @packages) {
-        $text .= sprintf "%s %s  %s\n", pad($p->package, 32), pad($p->version, 10, 1), $p->distfile;
+        $text .= sprintf "%-30s %8s  %s\n", $p->package, $p->version, $p->distfile;
     }
 
     return $text;
