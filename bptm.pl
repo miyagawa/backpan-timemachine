@@ -298,6 +298,7 @@ EOF
 package BPTM::Archive;
 use Moo;
 use MooX::late;
+use Log::Minimal;
 use Try::Tiny;
 use CPAN::DistnameInfo;
 use Dist::Metadata ();
@@ -321,18 +322,31 @@ sub _build_distinfo {
 sub package_versions {
     my $self = shift;
 
-    my $provides;
+    my $provides = try {
+        $self->alarm_wrap(sub { $self->metadata->provides });
+    } catch {
+        $self->alarm_wrap(sub { $self->provides_ignoring_dist_version });
+    };
+
+    $self->metadata->package_versions($provides);
+}
+
+sub alarm_wrap {
+    my($self, $code) = @_;
+
+    my($rv, $caught);
     try {
         local $SIG{__WARN__} = sub {};
         local $SIG{ALRM} = sub { die "ALARM\n" };
         alarm 30;
-        $provides = $self->metadata->provides;
-        alarm 0;
+        $rv = $code->();
     } catch {
-        $self->provides_ignoring_dist_version;
+        when ("ALARM\n") { $caught = $_ }
+        default { alarm 0; $caught = $_ }
     };
 
-    $self->metadata->package_versions($provides);
+    die $caught if $caught;
+    $rv;
 }
 
 sub provides_ignoring_dist_version {
