@@ -40,18 +40,18 @@ sub run {
     my $self = shift;
 
     $ENV{LM_DEBUG} = 1 if $self->debug;
-    $self->git_init($self->dest) if $self->git;
+    $self->init($self->dest);
     # TODO load from state, only newer files
     $self->find_iter(sub { $self->examine_file(@_) });
 
     $self->state->dump_files($self->dest);
 }
 
-sub git_init {
+sub init {
     my($self, $dir) = @_;
 
     $dir->mkpath;
-    unless ($dir->child('.git')->exists) {
+    if ($self->git && !$dir->child('.git')->exists) {
         my $pushd = File::pushd::pushd($dir);
         system 'git', 'init';
     }
