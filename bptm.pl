@@ -294,7 +294,7 @@ has distinfo => (is => 'lazy', handles => [qw( cpanid distvname )]);
 
 sub _build_metadata {
     my $self = shift;
-    Dist::Metadata->new(file => $self->path);
+    Dist::Metadata->new(file => $self->path, include_inner_packages => 1);
 }
 
 sub _build_distinfo {
