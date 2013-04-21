@@ -41,8 +41,13 @@ sub run {
 
     $ENV{LM_DEBUG} = 1 if $self->debug;
     $self->init($self->dest);
-    # TODO load from state, only newer files
-    $self->find_iter(sub { $self->examine_file(@_) });
+
+    if (my $file = $ENV{BPTM_DEBUG}) {
+        $self->examine_file(BPTM::Archive->new(path => $file, mtime => Time::Piece->new((stat($file))[9])));
+    } else {
+        # TODO load from state, only newer files
+        $self->find_iter(sub { $self->examine_file(@_) });
+    }
 
     $self->state->dump_files($self->dest);
 }
@@ -336,7 +341,6 @@ sub alarm_wrap {
 
     my($rv, $caught);
     try {
-        local $SIG{__WARN__} = sub {};
         local $SIG{ALRM} = sub { die "ALARM\n" };
         alarm 30;
         $rv = $code->();
@@ -357,7 +361,7 @@ sub provides_ignoring_dist_version {
 
     # numify versions extracted from packages
     my $provides = $self->metadata->determine_packages($self->metadata->meta_from_struct($meta));
-    while (my($module, $data) = keys %$provides) {
+    while (my($module, $data) = each %$provides) {
         if (exists $data->{version} && $data->{version} =~ /^v|\.\d+\./) {
             $data->{version} = version->parse($data->{version})->numify;
         }
