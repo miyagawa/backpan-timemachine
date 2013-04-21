@@ -229,7 +229,9 @@ sub update_effective {
 
     if (my $existing = $pkgs->{$package->package}) {
         my $new_ver = version->new($package->version);
-        if ($new_ver >= version->new($existing->version)) {
+        # PAUSE thinks 0 -> undef is a downgrade
+        my $became_undef = $package->version eq 'undef' && $existing->version ne 'undef';
+        if (!$became_undef and $new_ver >= version->new($existing->version)) {
             $pkgs->{$package->package} = $package;
         } else {
             warnf "%s has a higher version %s (> %s) in %s. Skipping",
@@ -338,7 +340,16 @@ sub provides_ignoring_dist_version {
 
     my $meta = $self->metadata->determine_metadata;
     $meta->{version} = '0'; # dist paths might have bad version like 'a1'
-    $self->metadata->determine_packages($self->metadata->meta_from_struct($meta));
+
+    # numify versions extracted from packages
+    my $provides = $self->metadata->determine_packages($self->metadata->meta_from_struct($meta));
+    while (my($module, $data) = keys %$provides) {
+        if (exists $data->{version}) {
+            $data->{version} = version->parse($data->{version})->numify;
+        }
+    }
+
+    $provides;
 }
 
 sub git_author {
