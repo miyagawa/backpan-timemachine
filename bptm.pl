@@ -358,7 +358,7 @@ sub provides_ignoring_dist_version {
     # numify versions extracted from packages
     my $provides = $self->metadata->determine_packages($self->metadata->meta_from_struct($meta));
     while (my($module, $data) = keys %$provides) {
-        if (exists $data->{version}) {
+        if (exists $data->{version} && $data->{version} =~ /^v|\.\d+\./) {
             $data->{version} = version->parse($data->{version})->numify;
         }
     }
