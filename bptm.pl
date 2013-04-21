@@ -18,6 +18,7 @@ use MooX::Options;
 option src => (is => 'ro', short => 's', format => 's', coerce => sub { Path::Tiny::path($_[0]) });
 option dest => (is => 'ro', short => 'd', format => 's', coerce => sub { Path::Tiny::path($_[0]) });
 option git => (is => 'ro', default => sub { 1 }, negativable => 1);
+option debug => (is => 'ro');
 
 has cache => (is => 'lazy');
 has perms => (is => 'lazy');
@@ -37,9 +38,13 @@ sub _build_state { BPTM::State->new }
 
 sub run {
     my $self = shift;
+
+    $ENV{LM_DEBUG} = 1 if $self->debug;
     $self->git_init($self->dest) if $self->git;
     # TODO load from state, only newer files
     $self->find_iter(sub { $self->examine_file(@_) });
+
+    $self->state->dump_files($self->dest);
 }
 
 sub git_init {
@@ -73,7 +78,7 @@ sub find_iter {
 sub examine_file {
     my($self, $archive) = @_;
 
-    infof 'Examining file %s', $archive->path;
+    infof 'Examining file %s from %s', $archive->path, $archive->mtime->strftime;
 
     my $versions = $archive->package_versions;
 
@@ -246,8 +251,13 @@ sub dump_files {
     my($self, $dir) = @_;
 
     # TODO only update new files to .state
+    use Time::HiRes qw(gettimeofday);
+    my $t = gettimeofday;
+
     $dir->child('backpan-timemachine.state')->spew($self->dump);
     $dir->child('02packages.details.txt')->spew($self->packages_txt);
+
+    debugf "Dumping files took %.8fs", (gettimeofday - $t);
 }
 
 sub dump {
@@ -309,8 +319,6 @@ sub _build_distinfo {
 sub package_versions {
     my $self = shift;
 
-    # 05:38 alh: YOu might want to put a alarm(5) around the ->package_versions
-    # 05:39 alh: Otherwise it may run forever when it hits Acme-BadExample-1.01/lib/Acme/BadExample.pm
     my $provides;
     try {
         local $SIG{__WARN__} = sub {};
