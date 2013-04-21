@@ -13,10 +13,13 @@ use Try::Tiny;
 use Path::Tiny ();
 use Log::Minimal;
 use File::pushd ();
+use MooX::Options;
+
+option src => (is => 'ro', short => 's', format => 's', coerce => sub { Path::Tiny::path($_[0]) });
+option dest => (is => 'ro', short => 'd', format => 's', coerce => sub { Path::Tiny::path($_[0]) });
+option git => (is => 'ro', default => sub { 1 }, negativable => 1);
 
 has cache => (is => 'lazy');
-has backpan => (is => 'ro', coerce => sub { Path::Tiny::path($_[0]) });
-has destination => (is => 'ro', coerce => sub { Path::Tiny::path($_[0]) });
 has perms => (is => 'lazy');
 has state => (is => 'lazy');
 
@@ -34,7 +37,7 @@ sub _build_state { BPTM::State->new }
 
 sub run {
     my $self = shift;
-    $self->git_init($self->destination);
+    $self->git_init($self->dest) if $self->git;
     # TODO load from state, only newer files
     $self->find_iter(sub { $self->examine_file(@_) });
 }
@@ -58,7 +61,7 @@ sub find_iter {
         return unless -f _ && /\.(?:tar\.gz|tar\.bz2|tgz|zip)$/;
         push @files, [ $_, $stat[9] ];
     };
-    File::Find::find({ wanted => $wanted, no_chdir => 1 }, $self->backpan->child('authors'));
+    File::Find::find({ wanted => $wanted, no_chdir => 1 }, $self->src->child('authors'));
 
     for my $file (sort { $a->[1] <=> $b->[1] } @files) {
         my $archive = BPTM::Archive->new(path => $file->[0], mtime => Time::Piece->new($file->[1]));
@@ -90,14 +93,14 @@ sub examine_file {
         }
     }
 
-    $self->state->dump_files($self->destination);
-    $self->git_commit($archive);
+    $self->state->dump_files($self->dest);
+    $self->git_commit($archive) if $self->git;
 }
 
 sub git_commit {
     my($self, $archive) = @_;
 
-    my $pushd = File::pushd::pushd($self->destination);
+    my $pushd = File::pushd::pushd($self->dest);
     system 'git', 'add', '.';
     system 'git', 'commit', '-q', '-m', $archive->distvname,
       '--author', $archive->git_author,
@@ -337,5 +340,4 @@ sub git_author {
 
 package main;
 
-my($backpan_src, $dest) = @ARGV;
-BPTM::CLI->new(backpan => $backpan_src, destination => $dest)->run;
+BPTM::CLI->new_with_options->run;
